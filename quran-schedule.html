@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Quran Tracker">
+<title>Quran Reading Schedule</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117;
+    --bg2: #13181f;
+    --bg3: #1a1f2e;
+    --bg4: #1e2535;
+    --border: #1e2535;
+    --border2: #2a3040;
+    --gold: #c9b98a;
+    --gold-dim: #7a6e4a;
+    --blue: #4a6aa0;
+    --blue-dim: #2a3a5a;
+    --green: #7db88a;
+    --green-dim: #2a4a30;
+    --text: #e8e2d4;
+    --text-dim: #8b9ab8;
+    --text-faint: #4a5568;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(160deg, #1a1f2e 0%, #0f1117 100%);
+    border-bottom: 1px solid var(--border2);
+    padding: calc(var(--safe-top) + 1.25rem) 1.25rem 1.25rem;
+  }
+  .header-eyebrow {
+    font-size: 0.6rem; letter-spacing: 0.2em; color: var(--text-faint);
+    text-transform: uppercase; margin-bottom: 0.4rem; font-family: monospace;
+  }
+  .header-arabic {
+    font-size: 1.8rem; color: #f0ead8; margin-bottom: 0.2rem; line-height: 1;
+  }
+  .header-sub { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1rem; }
+  .stats-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+  .stat-box {
+    background: var(--bg4); border-radius: 8px; padding: 0.5rem 0.85rem;
+    font-size: 0.75rem; flex: 1; min-width: 80px;
+  }
+  .stat-label { color: var(--text-faint); font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.15rem; }
+  .stat-val { color: var(--gold); font-weight: 700; }
+
+  /* PROGRESS BAR */
+  .progress-wrap { padding: 0.85rem 1.25rem; background: var(--bg2); border-bottom: 1px solid var(--border); }
+  .progress-label { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-dim); margin-bottom: 0.4rem; }
+  .progress-track { height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold-dim), var(--gold)); border-radius: 2px; transition: width 0.4s ease; }
+
+  /* CONTROLS */
+  .controls {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    padding: 0.65rem 1.25rem; position: sticky; top: 0; z-index: 20;
+    display: flex; gap: 0.5rem; align-items: center;
+  }
+  .search-input {
+    flex: 1; background: var(--bg4); border: 1px solid var(--border2);
+    border-radius: 8px; color: var(--text); padding: 0.45rem 0.75rem;
+    font-size: 0.8rem; font-family: inherit; outline: none; min-width: 0;
+  }
+  .search-input::placeholder { color: var(--text-faint); }
+  .filter-btn {
+    background: var(--bg4); color: var(--text-dim);
+    border: 1px solid var(--border2); border-radius: 8px;
+    padding: 0.45rem 0.7rem; font-size: 0.7rem; cursor: pointer;
+    font-family: inherit; white-space: nowrap; transition: all 0.15s;
+  }
+  .filter-btn.active { background: var(--gold); color: var(--bg); border-color: var(--gold); font-weight: 700; }
+
+  /* LIST */
+  .list { padding: 0.5rem 0 calc(var(--safe-bottom) + 5rem); }
+
+  .day-row {
+    display: flex; gap: 0.75rem; padding: 0.85rem 1.25rem;
+    border-bottom: 1px solid var(--border); align-items: flex-start;
+    transition: background 0.15s;
+  }
+  .day-row.done { opacity: 0.42; }
+  .day-row.partial-done { opacity: 0.65; }
+
+  /* Day bubble */
+  .day-num {
+    width: 38px; height: 38px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center; font-size: 0.72rem;
+    font-weight: 700; font-family: monospace; flex-shrink: 0;
+    border: 1px solid var(--border2); color: var(--text-faint);
+  }
+  .day-num.is-today { background: var(--gold); color: var(--bg); border-color: var(--gold); }
+  .day-num.is-next { border-color: var(--blue); color: #8baad4; background: var(--blue-dim); }
+  .day-num.is-done { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+  .day-num.is-partial { background: #3a2a10; border-color: #8a6a30; color: #c9a040; }
+  .day-num.is-missed { background: #3a1a1a; border-color: #8a3030; color: #c94040; }
+
+  .day-content { flex: 1; min-width: 0; }
+  .day-meta { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 0.25rem; }
+  .day-date { font-size: 0.7rem; color: var(--text-faint); font-family: monospace; }
+  .badge {
+    font-size: 0.58rem; border-radius: 4px; padding: 0.05rem 0.35rem;
+    font-weight: 700; letter-spacing: 0.05em;
+  }
+  .badge-today { background: var(--gold); color: var(--bg); }
+  .badge-next { background: var(--blue-dim); color: #8baad4; border: 1px solid var(--blue); }
+  .badge-done { background: var(--green-dim); color: var(--green); border: 1px solid var(--green-dim); }
+  .badge-partial { background: #3a2a10; color: #c9a040; border: 1px solid #5a4a20; }
+  .badge-missed { background: #3a1a1a; color: #c94040; border: 1px solid #5a2020; }
+
+  .day-reading { font-size: 0.82rem; color: var(--text); line-height: 1.5; }
+  .seg-done { color: var(--green); }
+  .seg-sep { color: var(--border2); margin: 0 0.2rem; }
+
+  /* Action buttons */
+  .day-actions { margin-top: 0.5rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .action-btn {
+    font-size: 0.7rem; border-radius: 7px; padding: 0.35rem 0.65rem;
+    border: 1px solid var(--border2); cursor: pointer; font-family: inherit;
+    transition: all 0.15s; background: var(--bg4); color: var(--text-dim);
+  }
+  .action-btn:active { transform: scale(0.95); }
+  .action-btn.done-btn { border-color: var(--green); color: var(--green); }
+  .action-btn.done-btn:hover { background: var(--green-dim); }
+  .action-btn.undo-btn { border-color: var(--border2); color: var(--text-faint); }
+  .action-btn.partial-btn { border-color: #8a6a30; color: #c9a040; }
+  .action-btn.partial-btn:hover { background: #3a2a10; }
+
+  /* Partial modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: flex; align-items: flex-end; z-index: 100;
+    animation: fadeIn 0.15s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: var(--bg3); border-radius: 18px 18px 0 0;
+    padding: 1.5rem 1.5rem calc(var(--safe-bottom) + 1.5rem);
+    width: 100%; animation: slideUp 0.2s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
+  .modal-sub { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1.25rem; }
+  .modal-label { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.5rem; }
+  .modal-hint { font-size: 0.68rem; color: var(--text-faint); margin-top: -0.6rem; margin-bottom: 1rem; text-align: center; }
+  .verse-input {
+    width: 100%; background: var(--bg4); border: 1px solid var(--border2);
+    border-radius: 10px; color: var(--text); padding: 0.75rem 1rem;
+    font-size: 1.1rem; font-family: inherit; outline: none; text-align: center;
+    margin-bottom: 1rem;
+  }
+  .modal-btns { display: flex; gap: 0.75rem; }
+  .modal-btn {
+    flex: 1; padding: 0.8rem; border-radius: 12px; font-size: 0.85rem;
+    font-family: inherit; font-weight: 600; cursor: pointer; border: none;
+    transition: opacity 0.15s;
+  }
+  .modal-btn:active { opacity: 0.8; }
+  .modal-cancel { background: var(--bg4); color: var(--text-dim); }
+  .modal-confirm { background: var(--gold); color: var(--bg); }
+
+  /* Completion banner */
+  .completion-banner {
+    margin: 1.5rem 1.25rem; padding: 1.5rem; background: var(--bg3);
+    border-radius: 14px; border: 1px solid var(--border2); text-align: center;
+  }
+  .completion-emoji { font-size: 1.8rem; margin-bottom: 0.5rem; }
+  .completion-title { font-size: 0.95rem; color: var(--gold); font-weight: 700; margin-bottom: 0.25rem; }
+  .completion-sub { font-size: 0.75rem; color: var(--text-faint); }
+
+  .empty-state { text-align: center; padding: 3rem 1.25rem; color: var(--text-faint); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-eyebrow">Quran Reading Tracker</div>
+  <div class="header-arabic">بِسْمِ ٱللَّهِ</div>
+  <div class="header-sub">30 verses/day · starting Ar-Ra'd 13:31</div>
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-label">Completed</div><div class="stat-val" id="stat-done">0 days</div></div>
+    <div class="stat-box"><div class="stat-label">Remaining</div><div class="stat-val" id="stat-left">— days</div></div>
+    <div class="stat-box"><div class="stat-label">Est. Finish</div><div class="stat-val" id="stat-finish">—</div></div>
+  </div>
+  <div style="margin-top:0.75rem;background:linear-gradient(135deg,#1e2535,#16202e);border:1px solid #2a3a5a;border-radius:10px;padding:0.75rem 1rem;display:flex;align-items:center;justify-content:space-between;">
+    <div>
+      <div class="stat-label" style="margin-bottom:0.2rem;">Days to Khatam</div>
+      <div style="font-size:0.72rem;color:var(--text-faint)" id="stat-finish-date">—</div>
+    </div>
+    <div style="display:flex;align-items:baseline;gap:0.35rem;">
+      <span id="stat-countdown" style="font-size:2.6rem;font-weight:800;color:#c9b98a;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-1px;">—</span>
+      <span style="font-size:0.72rem;color:var(--text-dim);">days</span>
+    </div>
+  </div>
+</div>
+
+<div class="progress-wrap">
+  <div class="progress-label">
+    <span id="prog-verses">0 / 4711 verses remaining</span>
+    <span id="prog-pct">0%</span>
+  </div>
+  <div class="progress-track"><div class="progress-fill" id="prog-fill" style="width:0%"></div></div>
+</div>
+
+<div class="controls">
+  <input class="search-input" type="search" id="search" placeholder="Search surah…" oninput="render()">
+  <button class="filter-btn active" id="f-all" onclick="setFilter('all')">All</button>
+  <button class="filter-btn" id="f-up" onclick="setFilter('upcoming')">Upcoming</button>
+  <button class="filter-btn" id="f-done" onclick="setFilter('done')">Done</button>
+</div>
+
+<div class="list" id="list"></div>
+
+<!-- Partial modal -->
+<div class="modal-overlay" id="modal" style="display:none" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-title">How many verses did you read?</div>
+    <div class="modal-sub" id="modal-sub">Day target: 30 verses</div>
+    <div class="modal-label">Verses completed today</div>
+    <input class="verse-input" type="number" id="modal-input" min="1" value="15">
+    <div class="modal-hint" id="modal-hint">Enter any amount — reading extra will shorten future days</div>
+    <div class="modal-btns">
+      <button class="modal-btn modal-cancel" onclick="document.getElementById('modal').style.display='none'">Cancel</button>
+      <button class="modal-btn modal-confirm" onclick="confirmPartial()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── SURAH DATA ──────────────────────────────────────────────────────────────
+const SURAHS = [
+  [1,"Al-Fatiha",7],[2,"Al-Baqarah",286],[3,"Al-Imran",200],[4,"An-Nisa",176],
+  [5,"Al-Maidah",120],[6,"Al-Anam",165],[7,"Al-Araf",206],[8,"Al-Anfal",75],
+  [9,"At-Tawbah",129],[10,"Yunus",109],[11,"Hud",123],[12,"Yusuf",111],
+  [13,"Ar-Rad",43],[14,"Ibrahim",52],[15,"Al-Hijr",99],[16,"An-Nahl",128],
+  [17,"Al-Isra",111],[18,"Al-Kahf",110],[19,"Maryam",98],[20,"Ta-Ha",135],
+  [21,"Al-Anbiya",112],[22,"Al-Hajj",78],[23,"Al-Muminun",118],[24,"An-Nur",64],
+  [25,"Al-Furqan",77],[26,"Ash-Shuara",227],[27,"An-Naml",93],[28,"Al-Qasas",88],
+  [29,"Al-Ankabut",69],[30,"Ar-Rum",60],[31,"Luqman",34],[32,"As-Sajdah",30],
+  [33,"Al-Ahzab",73],[34,"Saba",54],[35,"Fatir",45],[36,"Ya-Sin",83],
+  [37,"As-Saffat",182],[38,"Sad",88],[39,"Az-Zumar",75],[40,"Ghafir",85],
+  [41,"Fussilat",54],[42,"Ash-Shura",53],[43,"Az-Zukhruf",89],[44,"Ad-Dukhan",59],
+  [45,"Al-Jathiyah",37],[46,"Al-Ahqaf",35],[47,"Muhammad",38],[48,"Al-Fath",29],
+  [49,"Al-Hujurat",18],[50,"Qaf",45],[51,"Adh-Dhariyat",60],[52,"At-Tur",49],
+  [53,"An-Najm",62],[54,"Al-Qamar",55],[55,"Ar-Rahman",78],[56,"Al-Waqiah",96],
+  [57,"Al-Hadid",29],[58,"Al-Mujadilah",22],[59,"Al-Hashr",24],[60,"Al-Mumtahanah",13],
+  [61,"As-Saff",14],[62,"Al-Jumuah",11],[63,"Al-Munafiqun",11],[64,"At-Taghabun",18],
+  [65,"At-Talaq",12],[66,"At-Tahrim",12],[67,"Al-Mulk",30],[68,"Al-Qalam",52],
+  [69,"Al-Haqqah",52],[70,"Al-Maarij",44],[71,"Nuh",28],[72,"Al-Jinn",28],
+  [73,"Al-Muzzammil",20],[74,"Al-Muddaththir",56],[75,"Al-Qiyamah",40],
+  [76,"Al-Insan",31],[77,"Al-Mursalat",50],[78,"An-Naba",40],[79,"An-Naziat",46],
+  [80,"Abasa",42],[81,"At-Takwir",29],[82,"Al-Infitar",19],[83,"Al-Mutaffifin",36],
+  [84,"Al-Inshiqaq",25],[85,"Al-Buruj",22],[86,"At-Tariq",17],[87,"Al-Ala",19],
+  [88,"Al-Ghashiyah",26],[89,"Al-Fajr",30],[90,"Al-Balad",20],[91,"Ash-Shams",15],
+  [92,"Al-Layl",21],[93,"Ad-Dhuha",11],[94,"Ash-Sharh",8],[95,"At-Tin",8],
+  [96,"Al-Alaq",19],[97,"Al-Qadr",5],[98,"Al-Bayyinah",8],[99,"Az-Zalzalah",8],
+  [100,"Al-Adiyat",11],[101,"Al-Qariah",11],[102,"At-Takathur",8],[103,"Al-Asr",3],
+  [104,"Al-Humazah",9],[105,"Al-Fil",5],[106,"Quraysh",4],[107,"Al-Maun",7],
+  [108,"Al-Kawthar",3],[109,"Al-Kafirun",6],[110,"An-Nasr",3],[111,"Al-Masad",5],
+  [112,"Al-Ikhlas",4],[113,"Al-Falaq",5],[114,"An-Nas",6]
+];
+
+// Build flat verse list from Ar-Ra'd 13:31 onwards
+function buildVerseList() {
+  const verses = [];
+  let startIdx = SURAHS.findIndex(s => s[0] === 13);
+  for (let i = startIdx; i < SURAHS.length; i++) {
+    const [num, name, total] = SURAHS[i];
+    const startV = (i === startIdx) ? 31 : 1;
+    for (let v = startV; v <= total; v++) {
+      verses.push({ surah: num, name, verse: v, total });
+    }
+  }
+  return verses;
+}
+
+const ALL_VERSES = buildVerseList(); // flat array of every verse to read
+const TOTAL_VERSES = ALL_VERSES.length;
+
+// ── DATE HELPERS ─────────────────────────────────────────────────────────────
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAYS_W = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function fmtDate(d) {
+  return `${DAYS_W[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+}
+function addDays(d, n) {
+  const r = new Date(d); r.setDate(r.getDate()+n); return r;
+}
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+// logs: { [dateKey]: { done: true } | { partial: N } | { missed: true } }
+const START_DATE = new Date(2026, 6, 30); // July 30 2026
+const TODAY = new Date(2026, 6, 30);
+
+function loadLogs() {
+  try { return JSON.parse(localStorage.getItem('quran_logs') || '{}'); }
+  catch { return {}; }
+}
+function saveLogs(logs) {
+  localStorage.setItem('quran_logs', JSON.stringify(logs));
+}
+
+let logs = loadLogs();
+let currentFilter = 'all';
+let modalDayIdx = null;
+
+// ── SCHEDULE BUILDER ─────────────────────────────────────────────────────────
+// Builds schedule dynamically based on logs (partial/missed carry over)
+function buildSchedule() {
+  const days = [];
+  let versePtr = 0; // index into ALL_VERSES
+  let dayOffset = 0;
+
+  while (versePtr < TOTAL_VERSES) {
+    const date = addDays(START_DATE, dayOffset);
+    const dk = dateKey(date);
+    const target = dayOffset === 0 ? 5 : 30; // Day 1 = 5 verses, rest = 30
+    const log = logs[dk];
+
+    let versesThisDay;
+    if (log && log.done) {
+      versesThisDay = target;
+    } else if (log && log.partial != null) {
+      versesThisDay = log.partial;
+    } else {
+      versesThisDay = target;
+    }
+
+    const startPtr = versePtr;
+    const endPtr = Math.min(versePtr + target - 1, TOTAL_VERSES - 1); // planned end
+    const actualEndPtr = Math.min(versePtr + versesThisDay - 1, TOTAL_VERSES - 1);
+
+    // Build segment labels for what's planned today
+    const planSegments = buildSegments(startPtr, endPtr);
+    const doneSegments = (log && (log.done || log.partial != null))
+      ? buildSegments(startPtr, actualEndPtr) : [];
+
+    days.push({
+      dayNum: dayOffset + 1,
+      date,
+      dk,
+      target,
+      planSegments,
+      doneSegments,
+      log,
+      startPtr,
+      endPtr,
+      actualEndPtr,
+    });
+
+    // Advance pointer by what was actually done (or full target if future/complete)
+    if (log && log.partial != null) {
+      versePtr += log.partial;
+    } else {
+      versePtr += target;
+    }
+    dayOffset++;
+  }
+
+  return days;
+}
+
+function buildSegments(startPtr, endPtr) {
+  if (startPtr > endPtr || startPtr >= TOTAL_VERSES) return [];
+  const segs = [];
+  let i = startPtr;
+  while (i <= endPtr && i < TOTAL_VERSES) {
+    const { surah, name } = ALL_VERSES[i];
+    const fromV = ALL_VERSES[i].verse;
+    let j = i;
+    while (j <= endPtr && j < TOTAL_VERSES && ALL_VERSES[j].surah === surah) j++;
+    const toV = ALL_VERSES[j-1].verse;
+    const finished = (toV === ALL_VERSES[Math.min(j-1, TOTAL_VERSES-1)].total && (j > endPtr || ALL_VERSES[j]?.surah !== surah));
+    segs.push({ surah, name, from: fromV, to: toV, finished });
+    i = j;
+  }
+  return segs;
+}
+
+function segLabel(seg) {
+  if (seg.from === seg.to) return `${seg.name} ${seg.surah}:${seg.from}`;
+  return `${seg.name} ${seg.surah}:${seg.from}–${seg.to}`;
+}
+
+// ── STATS ────────────────────────────────────────────────────────────────────
+function updateStats(schedule) {
+  const doneDays = schedule.filter(d => d.log && (d.log.done || d.log.partial != null)).length;
+  const versesRead = schedule.reduce((acc, d) => {
+    if (!d.log) return acc;
+    if (d.log.done) return acc + d.target;
+    if (d.log.partial != null) return acc + d.log.partial;
+    return acc;
+  }, 0);
+  const remaining = TOTAL_VERSES - versesRead;
+  const pct = Math.round((versesRead / TOTAL_VERSES) * 100);
+
+  document.getElementById('stat-done').textContent = doneDays + ' day' + (doneDays !== 1 ? 's' : '');
+  document.getElementById('stat-left').textContent = (schedule.length - doneDays) + ' days';
+
+  const lastDay = schedule[schedule.length - 1];
+  document.getElementById('stat-finish').textContent = lastDay ? fmtDate(lastDay.date) : '—';
+
+  // Days to completion countdown
+  if (lastDay) {
+    const msPerDay = 1000 * 60 * 60 * 24;
+    const daysLeft = Math.ceil((lastDay.date - TODAY) / msPerDay);
+    document.getElementById('stat-countdown').textContent = daysLeft > 0 ? daysLeft : '🎉';
+    document.getElementById('stat-finish-date').textContent = fmtDate(lastDay.date);
+  }
+  document.getElementById('prog-verses').textContent = versesRead.toLocaleString() + ' / ' + TOTAL_VERSES.toLocaleString() + ' verses';
+  document.getElementById('prog-pct').textContent = pct + '%';
+  document.getElementById('prog-fill').style.width = pct + '%';
+}
+
+// ── RENDER ───────────────────────────────────────────────────────────────────
+function setFilter(f) {
+  currentFilter = f;
+  document.getElementById('f-all').classList.toggle('active', f==='all');
+  document.getElementById('f-up').classList.toggle('active', f==='upcoming');
+  document.getElementById('f-done').classList.toggle('active', f==='done');
+  render();
+}
+
+function render() {
+  const schedule = buildSchedule();
+  updateStats(schedule);
+
+  const q = document.getElementById('search').value.toLowerCase().trim();
+  const todayKey = dateKey(TODAY);
+
+  let list = schedule;
+  if (currentFilter === 'upcoming') list = list.filter(d => d.date >= TODAY && !(d.log && d.log.done));
+  if (currentFilter === 'done') list = list.filter(d => d.log && (d.log.done || d.log.partial != null));
+  if (q) list = list.filter(d => d.planSegments.some(s => s.name.toLowerCase().includes(q)));
+
+  const container = document.getElementById('list');
+
+  if (list.length === 0) {
+    container.innerHTML = '<div class="empty-state">No days match.</div>';
+    return;
+  }
+
+  let html = '';
+
+  list.forEach((day, idx) => {
+    const isToday = day.dk === todayKey;
+    const isFuture = day.date > TODAY;
+    const isPast = day.date < TODAY;
+    const log = day.log;
+    const isDone = log && log.done;
+    const isPartial = log && log.partial != null;
+    const isMissed = isPast && !log;
+
+    // Next upcoming day = first day without a complete log at/after today
+    const isNext = !isToday && isFuture && idx === list.findIndex(d => !d.log || (!d.log.done && d.log.partial == null));
+
+    let bubbleClass = 'day-num';
+    if (isDone) bubbleClass += ' is-done';
+    else if (isPartial) bubbleClass += ' is-partial';
+    else if (isMissed) bubbleClass += ' is-missed';
+    else if (isToday) bubbleClass += ' is-today';
+    else if (isNext) bubbleClass += ' is-next';
+
+    let rowClass = 'day-row';
+    if (isDone) rowClass += ' done';
+    else if (isPartial) rowClass += ' partial-done';
+
+    // Badges
+    let badges = '';
+    if (isToday) badges += '<span class="badge badge-today">TODAY</span>';
+    else if (isNext && !isToday) badges += '<span class="badge badge-next">NEXT</span>';
+    if (isDone) badges += '<span class="badge badge-done">✓ Done</span>';
+    else if (isPartial && log.partial >= day.target) badges += `<span class="badge badge-done">✓ Done +${log.partial - day.target} extra</span>`;
+    else if (isPartial) badges += `<span class="badge badge-partial">⬤ Partial — ${log.partial} of ${day.target} verses</span>`;
+    else if (isMissed) badges += '<span class="badge badge-missed">Missed</span>';
+
+    // Reading text — show planned, highlight done portion if partial
+    let readingHtml = '';
+    if (isPartial) {
+      day.doneSegments.forEach((seg, i) => {
+        readingHtml += `<span class="seg-done">${segLabel(seg)}${seg.finished ? ' ✓' : ''}</span>`;
+        if (i < day.doneSegments.length - 1) readingHtml += '<span class="seg-sep">·</span>';
+      });
+      // Remaining planned
+      const remainingPtr = day.actualEndPtr + 1;
+      if (remainingPtr <= day.endPtr) {
+        const remSegs = buildSegments(remainingPtr, day.endPtr);
+        if (remSegs.length) {
+          readingHtml += '<span class="seg-sep"> → </span>';
+          remSegs.forEach((seg, i) => {
+            readingHtml += `<span style="color:var(--text-dim)">${segLabel(seg)}</span>`;
+            if (i < remSegs.length - 1) readingHtml += '<span class="seg-sep">·</span>';
+          });
+        }
+      }
+    } else {
+      day.planSegments.forEach((seg, i) => {
+        const cls = isDone ? 'seg-done' : '';
+        readingHtml += `<span class="${cls}">${segLabel(seg)}${isDone && seg.finished ? ' ✓' : ''}</span>`;
+        if (i < day.planSegments.length - 1) readingHtml += '<span class="seg-sep">·</span>';
+      });
+    }
+
+    // Action buttons
+    let actions = '';
+    if (!isDone && !isPartial) {
+      actions += `<button class="action-btn done-btn" onclick="markDone('${day.dk}')">✓ Mark complete</button>`;
+      actions += `<button class="action-btn partial-btn" onclick="openPartial(${idx}, '${day.dk}', ${day.target})">⬤ Partial</button>`;
+    } else {
+      actions += `<button class="action-btn undo-btn" onclick="undoDay('${day.dk}')">↩ Undo</button>`;
+    }
+
+    html += `
+      <div class="${rowClass}">
+        <div class="${bubbleClass}">${day.dayNum}</div>
+        <div class="day-content">
+          <div class="day-meta">
+            <span class="day-date">${fmtDate(day.date)}</span>
+            ${badges}
+          </div>
+          <div class="day-reading">${readingHtml}</div>
+          <div class="day-actions">${actions}</div>
+        </div>
+      </div>`;
+  });
+
+  // Completion check
+  const allDone = schedule.every(d => d.log && d.log.done);
+  if (allDone) {
+    html += `<div class="completion-banner">
+      <div class="completion-emoji">🌙</div>
+      <div class="completion-title">Khatam Al-Quran — مبروك</div>
+      <div class="completion-sub">May Allah accept it from you. آمين</div>
+    </div>`;
+  } else {
+    const last = schedule[schedule.length - 1];
+    html += `<div class="completion-banner">
+      <div class="completion-emoji">🌙</div>
+      <div class="completion-title">Est. completion: ${last ? fmtDate(last.date) : '—'}</div>
+      <div class="completion-sub">May Allah make it easy and accept it from you.</div>
+    </div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+// ── ACTIONS ──────────────────────────────────────────────────────────────────
+function markDone(dk) {
+  logs[dk] = { done: true };
+  saveLogs(logs);
+  render();
+}
+
+function undoDay(dk) {
+  delete logs[dk];
+  saveLogs(logs);
+  render();
+}
+
+let _modalDK = null;
+let _modalTarget = 30;
+
+function openPartial(idx, dk, target) {
+  _modalDK = dk;
+  _modalTarget = target;
+  document.getElementById('modal-sub').textContent = `Day target: ${target} verses`;
+  const input = document.getElementById('modal-input');
+  input.removeAttribute('max');
+  input.value = Math.floor(target / 2);
+  // Update hint live as user types
+  input.oninput = () => {
+    const v = parseInt(input.value) || 0;
+    const hint = document.getElementById('modal-hint');
+    if (v > target) {
+      hint.textContent = `+${v - target} extra — next day will start ${v - target} verses ahead ✓`;
+      hint.style.color = 'var(--green)';
+    } else if (v > 0 && v < target) {
+      hint.textContent = `${target - v} verses will carry into the next day`;
+      hint.style.color = 'var(--text-faint)';
+    } else {
+      hint.textContent = 'Enter any amount — reading extra will shorten future days';
+      hint.style.color = 'var(--text-faint)';
+    }
+  };
+  document.getElementById('modal').style.display = 'flex';
+  setTimeout(() => input.focus(), 100);
+}
+
+function closeModal(e) {
+  if (e.target.id === 'modal') document.getElementById('modal').style.display = 'none';
+}
+
+function confirmPartial() {
+  const val = parseInt(document.getElementById('modal-input').value);
+  if (!val || val < 1) {
+    alert('Please enter at least 1 verse.');
+    return;
+  }
+  // If they read the full target or more, just mark as done with the actual count
+  logs[_modalDK] = { partial: val };
+  saveLogs(logs);
+  document.getElementById('modal').style.display = 'none';
+  render();
+}
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
