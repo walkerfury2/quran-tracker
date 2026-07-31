@@ -139,6 +139,16 @@
   .action-btn.partial-btn { border-color: #8a6a30; color: #c9a040; }
   .action-btn.partial-btn:hover { background: #3a2a10; }
 
+  /* Next verse banner */
+  .next-verse-banner {
+    background: linear-gradient(135deg, #1a2535, #111827);
+    border: 1px solid #2a3a5a; border-radius: 10px;
+    padding: 0.75rem 1rem; margin-top: 0.75rem;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .next-verse-label { font-size: 0.6rem; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.2rem; }
+  .next-verse-val { font-size: 1rem; font-weight: 700; color: #8baad4; }
+
   /* Partial modal */
   .modal-overlay {
     position: fixed; inset: 0; background: rgba(0,0,0,0.75);
@@ -153,15 +163,17 @@
   }
   @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
   .modal-title { font-size: 1rem; font-weight: 700; margin-bottom: 0.25rem; }
-  .modal-sub { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1.25rem; }
+  .modal-sub { font-size: 0.78rem; color: var(--text-dim); margin-bottom: 1rem; }
   .modal-label { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.5rem; }
-  .modal-hint { font-size: 0.68rem; color: var(--text-faint); margin-top: -0.6rem; margin-bottom: 1rem; text-align: center; }
-  .verse-input {
-    width: 100%; background: var(--bg4); border: 1px solid var(--border2);
-    border-radius: 10px; color: var(--text); padding: 0.75rem 1rem;
-    font-size: 1.1rem; font-family: inherit; outline: none; text-align: center;
-    margin-bottom: 1rem;
+  .modal-hint { font-size: 0.68rem; color: var(--text-faint); margin-top: 0.3rem; margin-bottom: 1rem; text-align: center; min-height: 1rem; }
+  .modal-selects { display: flex; gap: 0.6rem; margin-bottom: 0.4rem; }
+  .modal-select {
+    flex: 1; background: var(--bg4); border: 1px solid var(--border2);
+    border-radius: 10px; color: var(--text); padding: 0.75rem 0.5rem;
+    font-size: 0.85rem; font-family: inherit; outline: none; text-align: center;
+    -webkit-appearance: none; appearance: none;
   }
+  .modal-select:focus { border-color: var(--gold); }
   .modal-btns { display: flex; gap: 0.75rem; }
   .modal-btn {
     flex: 1; padding: 0.8rem; border-radius: 12px; font-size: 0.85rem;
@@ -190,6 +202,16 @@
   <div class="header-eyebrow">Quran Reading Tracker</div>
   <div class="header-arabic">بِسْمِ ٱللَّهِ</div>
   <div class="header-sub">30 verses/day · starting Ar-Ra'd 13:31</div>
+  <div class="next-verse-banner">
+    <div>
+      <div class="next-verse-label">📖 Read next</div>
+      <div class="next-verse-val" id="next-verse-display">—</div>
+    </div>
+    <div style="font-size:0.7rem;color:var(--text-faint);text-align:right;line-height:1.5;">
+      <div id="next-verse-juz" style="color:var(--text-dim)"></div>
+      <div id="next-verse-remaining"></div>
+    </div>
+  </div>
   <div class="stats-row">
     <div class="stat-box"><div class="stat-label">Completed</div><div class="stat-val" id="stat-done">0 days</div></div>
     <div class="stat-box"><div class="stat-label">Remaining</div><div class="stat-val" id="stat-left">— days</div></div>
@@ -227,11 +249,14 @@
 <!-- Partial modal -->
 <div class="modal-overlay" id="modal" style="display:none" onclick="closeModal(event)">
   <div class="modal">
-    <div class="modal-title">How many verses did you read?</div>
-    <div class="modal-sub" id="modal-sub">Day target: 30 verses</div>
-    <div class="modal-label">Verses completed today</div>
-    <input class="verse-input" type="number" id="modal-input" min="1" value="15">
-    <div class="modal-hint" id="modal-hint">Enter any amount — reading extra will shorten future days</div>
+    <div class="modal-title">Where did you stop?</div>
+    <div class="modal-sub" id="modal-sub">Enter the last verse you read</div>
+    <div class="modal-label">Surah &amp; Verse you finished on</div>
+    <div class="modal-selects">
+      <select class="modal-select" id="modal-surah" style="flex:2" onchange="onSurahChange()"></select>
+      <select class="modal-select" id="modal-verse" style="flex:1"></select>
+    </div>
+    <div class="modal-hint" id="modal-hint"></div>
     <div class="modal-btns">
       <button class="modal-btn modal-cancel" onclick="document.getElementById('modal').style.display='none'">Cancel</button>
       <button class="modal-btn modal-confirm" onclick="confirmPartial()">Save</button>
@@ -441,6 +466,7 @@ function setFilter(f) {
 function render() {
   const schedule = buildSchedule();
   updateStats(schedule);
+  updateNextVerseBanner(schedule);
 
   const q = document.getElementById('search').value.toLowerCase().trim();
   const todayKey = dateKey(TODAY);
@@ -522,7 +548,7 @@ function render() {
     let actions = '';
     if (!isDone && !isPartial) {
       actions += `<button class="action-btn done-btn" onclick="markDone('${day.dk}')">✓ Mark complete</button>`;
-      actions += `<button class="action-btn partial-btn" onclick="openPartial(${idx}, '${day.dk}', ${day.target})">⬤ Partial</button>`;
+      actions += `<button class="action-btn partial-btn" onclick="openPartial(${idx}, '${day.dk}', ${day.target}, ${day.startPtr})">⬤ Partial</button>`;
     } else {
       actions += `<button class="action-btn undo-btn" onclick="undoDay('${day.dk}')">↩ Undo</button>`;
     }
@@ -576,31 +602,94 @@ function undoDay(dk) {
 
 let _modalDK = null;
 let _modalTarget = 30;
+let _modalStartPtr = 0; // verse index where this day starts
 
-function openPartial(idx, dk, target) {
+// Convert a surah+verse to an index in ALL_VERSES
+function verseToPtr(surahNum, verseNum) {
+  for (let i = 0; i < ALL_VERSES.length; i++) {
+    if (ALL_VERSES[i].surah === surahNum && ALL_VERSES[i].verse === verseNum) return i;
+  }
+  return -1;
+}
+
+// Populate surah dropdown, optionally selecting a given surah
+function populateSurahSelect(selectedSurah) {
+  const sel = document.getElementById('modal-surah');
+  // Only show surahs reachable from the start of this day onwards
+  const startSurah = ALL_VERSES[_modalStartPtr].surah;
+  sel.innerHTML = '';
+  for (let i = 0; i < SURAHS.length; i++) {
+    if (SURAHS[i][0] < startSurah) continue;
+    const opt = document.createElement('option');
+    opt.value = SURAHS[i][0];
+    opt.textContent = `${SURAHS[i][0]}. ${SURAHS[i][1]}`;
+    if (SURAHS[i][0] === selectedSurah) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+// Populate verse dropdown for selected surah
+function populateVerseSelect(surahNum, selectedVerse) {
+  const surah = SURAHS.find(s => s[0] === surahNum);
+  if (!surah) return;
+  const total = surah[2];
+  const sel = document.getElementById('modal-verse');
+  sel.innerHTML = '';
+  // Start from verse 1, or from the start verse if it's the starting surah
+  const startV = (surahNum === ALL_VERSES[_modalStartPtr].surah) ? ALL_VERSES[_modalStartPtr].verse : 1;
+  for (let v = startV; v <= total; v++) {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = v;
+    if (v === selectedVerse) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+function onSurahChange() {
+  const surahNum = parseInt(document.getElementById('modal-surah').value);
+  populateVerseSelect(surahNum, 1);
+  updateModalHint();
+}
+
+function updateModalHint() {
+  const surahNum = parseInt(document.getElementById('modal-surah').value);
+  const verseNum = parseInt(document.getElementById('modal-verse').value);
+  const ptr = verseToPtr(surahNum, verseNum);
+  const hint = document.getElementById('modal-hint');
+  if (ptr < 0) { hint.textContent = ''; return; }
+  const versesRead = ptr - _modalStartPtr + 1;
+  const diff = versesRead - _modalTarget;
+  if (diff > 0) {
+    hint.textContent = `${versesRead} verses — ${diff} extra, next day starts ahead ✓`;
+    hint.style.color = 'var(--green)';
+  } else if (diff < 0) {
+    hint.textContent = `${versesRead} verses — ${Math.abs(diff)} carry to tomorrow`;
+    hint.style.color = 'var(--text-faint)';
+  } else {
+    hint.textContent = `${versesRead} verses — exactly on target ✓`;
+    hint.style.color = 'var(--green)';
+  }
+}
+
+function openPartial(idx, dk, target, startPtr) {
   _modalDK = dk;
   _modalTarget = target;
-  document.getElementById('modal-sub').textContent = `Day target: ${target} verses`;
-  const input = document.getElementById('modal-input');
-  input.removeAttribute('max');
-  input.value = Math.floor(target / 2);
-  // Update hint live as user types
-  input.oninput = () => {
-    const v = parseInt(input.value) || 0;
-    const hint = document.getElementById('modal-hint');
-    if (v > target) {
-      hint.textContent = `+${v - target} extra — next day will start ${v - target} verses ahead ✓`;
-      hint.style.color = 'var(--green)';
-    } else if (v > 0 && v < target) {
-      hint.textContent = `${target - v} verses will carry into the next day`;
-      hint.style.color = 'var(--text-faint)';
-    } else {
-      hint.textContent = 'Enter any amount — reading extra will shorten future days';
-      hint.style.color = 'var(--text-faint)';
-    }
-  };
+  _modalStartPtr = startPtr;
+
+  // Default selection = end of planned day
+  const defaultPtr = Math.min(startPtr + target - 1, ALL_VERSES.length - 1);
+  const defaultV = ALL_VERSES[defaultPtr];
+
+  document.getElementById('modal-sub').textContent = `Today's plan ends at ${defaultV.name} ${defaultV.surah}:${defaultV.verse}`;
+
+  populateSurahSelect(defaultV.surah);
+  populateVerseSelect(defaultV.surah, defaultV.verse);
+
+  document.getElementById('modal-verse').onchange = updateModalHint;
+  updateModalHint();
+
   document.getElementById('modal').style.display = 'flex';
-  setTimeout(() => input.focus(), 100);
 }
 
 function closeModal(e) {
@@ -608,16 +697,59 @@ function closeModal(e) {
 }
 
 function confirmPartial() {
-  const val = parseInt(document.getElementById('modal-input').value);
-  if (!val || val < 1) {
-    alert('Please enter at least 1 verse.');
+  const surahNum = parseInt(document.getElementById('modal-surah').value);
+  const verseNum = parseInt(document.getElementById('modal-verse').value);
+  const ptr = verseToPtr(surahNum, verseNum);
+  if (ptr < _modalStartPtr) {
+    alert('That verse is before where today starts. Please pick a later verse.');
     return;
   }
-  // If they read the full target or more, just mark as done with the actual count
-  logs[_modalDK] = { partial: val };
+  const versesRead = ptr - _modalStartPtr + 1;
+  logs[_modalDK] = { partial: versesRead };
   saveLogs(logs);
   document.getElementById('modal').style.display = 'none';
   render();
+}
+
+// ── NEXT VERSE BANNER ────────────────────────────────────────────────────────
+function updateNextVerseBanner(schedule) {
+  // Find first incomplete day
+  const nextDay = schedule.find(d => !d.log || (!d.log.done && (d.log.partial == null || d.log.partial < d.target)));
+  // Actually find the true next verse pointer = startPtr of next incomplete day
+  // or if partial, the actualEndPtr+1
+  let nextPtr = 0;
+  if (nextDay) {
+    if (nextDay.log && nextDay.log.partial != null) {
+      nextPtr = nextDay.actualEndPtr + 1;
+    } else {
+      nextPtr = nextDay.startPtr;
+    }
+  } else {
+    // all done
+    document.getElementById('next-verse-display').textContent = 'Khatam complete 🎉';
+    document.getElementById('next-verse-juz').textContent = '';
+    document.getElementById('next-verse-remaining').textContent = '';
+    return;
+  }
+
+  if (nextPtr >= ALL_VERSES.length) {
+    document.getElementById('next-verse-display').textContent = 'Khatam complete 🎉';
+    return;
+  }
+
+  const v = ALL_VERSES[nextPtr];
+  document.getElementById('next-verse-display').textContent = `${v.name} ${v.surah}:${v.verse}`;
+
+  // Juz calculation (approximate: each juz ~207 verses, total 6236, starting from absolute verse 1)
+  // Our ALL_VERSES starts at 13:31. Absolute verse index of 13:31:
+  // Sum verses of surahs 1-12 + 30 = 7+286+200+176+120+165+206+75+129+109+123+111+30 = 1737
+  const ABSOLUTE_OFFSET = 1737; // verses before our start
+  const absIdx = ABSOLUTE_OFFSET + nextPtr;
+  const juzNum = Math.min(30, Math.floor(absIdx / (6236/30)) + 1);
+  document.getElementById('next-verse-juz').textContent = `Juz ${juzNum}`;
+
+  const remaining = ALL_VERSES.length - nextPtr;
+  document.getElementById('next-verse-remaining').textContent = `${remaining.toLocaleString()} verses left`;
 }
 
 // ── INIT ─────────────────────────────────────────────────────────────────────
