@@ -366,10 +366,10 @@ const SURAHS = [
 
 // Flat verse list starting from Ar-Ra'd 13:30 (the last verse already read)
 // Schedule starts from 13:31
-const START_SURAH = 13, START_VERSE = 31;
+const START_SURAH = 1, START_VERSE = 1;
 const VERSES_PER_DAY = 30;
-const START_DATE = new Date(2026, 6, 30); // July 30 2026
-const TODAY = new Date(2026, 6, 30);
+const START_DATE = new Date(2026, 6, 30); // July 30 2026 — actual start
+const TODAY = new Date(); TODAY.setHours(0,0,0,0); // always real today
 
 function buildVerseList() {
   const verses = [];
@@ -439,7 +439,7 @@ function buildSchedule() {
   let sessionIdx = 0;
   while (sessionIdx < sessions.length) {
     const sess = sessions[sessionIdx];
-    const target = dayNum === 1 ? 5 : VERSES_PER_DAY;
+    const target = VERSES_PER_DAY;
     const planEnd = Math.min(versePtr + target - 1, TOTAL_VERSES - 1);
 
     // How many verses does this session cover from versePtr?
@@ -459,7 +459,7 @@ function buildSchedule() {
       let remaining = versesRead;
       let firstSess = true;
       while (remaining > 0) {
-        const t = dayNum === 1 ? 5 : VERSES_PER_DAY;
+        const t = VERSES_PER_DAY;
         const chunkEnd = Math.min(p + t - 1, actualEnd);
         const chunkRead = chunkEnd - p + 1;
         const chunkStatus = chunkRead >= t ? (chunkRead > t ? 'over' : 'done') : 'short';
@@ -600,7 +600,7 @@ function updateInpHint() {
 
   if (ptr < 0) {
     // Before our start — they already read this (it's before Ar-Ra'd 13:31)
-    hint.textContent = 'This is before your starting point (Ar-Ra\'d 13:30)';
+    hint.textContent = 'This is before Al-Fatiha 1:1 — that is the very beginning!';
     hint.className = 'stopped-hint short';
     return;
   }
@@ -635,10 +635,16 @@ function saveStop() {
   const surahNum = parseInt(document.getElementById('inp-surah').value);
   const verseNum = parseInt(document.getElementById('inp-verse').value);
   const ptr = verseToPtr(surahNum, verseNum);
-  if (ptr < 0) { alert("That's before your starting point."); return; }
+  if (ptr < 0) { alert("That verse is before Al-Fatiha 1:1."); return; }
   const stoppedPtr = getStoppedPtr();
   if (ptr <= stoppedPtr) { alert("You've already passed this verse. Pick a later one."); return; }
-  state.sessions.push({ ptr, date: dateKey(TODAY) });
+  const todayKey = dateKey(TODAY);
+  // If last session was also today, update it instead of adding a new one
+  if (state.sessions.length > 0 && state.sessions[state.sessions.length-1].date === todayKey) {
+    state.sessions[state.sessions.length-1].ptr = ptr;
+  } else {
+    state.sessions.push({ ptr, date: todayKey });
+  }
   saveState(state);
   render();
 }
