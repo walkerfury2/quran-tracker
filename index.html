@@ -423,72 +423,36 @@ function getStoppedPtr() {
 let currentFilter = 'all';
 
 // ── SCHEDULE BUILDER ─────────────────────────────────────────────────────────
-// Each session = { ptr, date } meaning "I completed up to verse ptr on this date".
-// We reconstruct days from sessions: each session boundary = one completed day.
-// Future days are projected from tomorrow onwards assuming no skips.
+// Each session = { ptr, date } = one row in the completed list.
+// One save = one completed row, no chunking.
+// Future days are projected forward at 30 verses/day from next day after last session.
 function buildSchedule() {
   const days = [];
-  const sessions = state.sessions; // [{ptr, date}, ...]
-  const stoppedPtr = getStoppedPtr();
+  const sessions = state.sessions;
   let versePtr = 0;
   let dayNum = 1;
 
-  // ── COMPLETED DAYS (from sessions) ──────────────────────────────────────
-  // Each session records where the user stopped. We infer day boundaries by
-  // assigning 30 verses per day (5 on day 1) and matching sessions to days.
-  let sessionIdx = 0;
-  while (sessionIdx < sessions.length) {
-    const sess = sessions[sessionIdx];
-    const target = VERSES_PER_DAY;
-    const planEnd = Math.min(versePtr + target - 1, TOTAL_VERSES - 1);
-
-    // How many verses does this session cover from versePtr?
-    const sessEnd = sess.ptr; // last verse index in this session
-    const actualEnd = Math.min(sessEnd, TOTAL_VERSES - 1);
+  // ── COMPLETED DAYS — one row per session, no chunking ───────────────────
+  for (let i = 0; i < sessions.length; i++) {
+    const sess = sessions[i];
+    const actualEnd = Math.min(sess.ptr, TOTAL_VERSES - 1);
     const versesRead = actualEnd - versePtr + 1;
-
-    let status;
-    if (versesRead > target) status = 'over';
-    else if (versesRead === target) status = 'done';
-    else status = 'short';
-
-    // If a session covers multiple planned days, emit one day per 30-verse chunk
-    if (versesRead > target) {
-      // This session spans more than one planned day — emit completed days
-      let p = versePtr;
-      let remaining = versesRead;
-      let firstSess = true;
-      while (remaining > 0) {
-        const t = VERSES_PER_DAY;
-        const chunkEnd = Math.min(p + t - 1, actualEnd);
-        const chunkRead = chunkEnd - p + 1;
-        const chunkStatus = chunkRead >= t ? (chunkRead > t ? 'over' : 'done') : 'short';
-        days.push({
-          dayNum, date: parseDate(sess.date), target: t,
-          status: chunkStatus, ptr: p, planEnd: Math.min(p+t-1, TOTAL_VERSES-1),
-          actualEnd: chunkEnd, versesRead: chunkRead,
-          planSegs: buildSegments(p, Math.min(p+t-1, TOTAL_VERSES-1)),
-          doneSegs: buildSegments(p, chunkEnd),
-          isCompleted: true
-        });
-        p = chunkEnd + 1;
-        remaining -= chunkRead;
-        dayNum++;
-      }
-      versePtr = actualEnd + 1;
-    } else {
-      days.push({
-        dayNum, date: parseDate(sess.date), target,
-        status, ptr: versePtr, planEnd,
-        actualEnd, versesRead,
-        planSegs: buildSegments(versePtr, planEnd),
-        doneSegs: buildSegments(versePtr, actualEnd),
-        isCompleted: true
-      });
-      versePtr = actualEnd + 1;
-      dayNum++;
-    }
-    sessionIdx++;
+    const status = versesRead >= VERSES_PER_DAY ? 'done' : 'short';
+    days.push({
+      dayNum,
+      date: parseDate(sess.date),
+      target: VERSES_PER_DAY,
+      status,
+      ptr: versePtr,
+      planEnd: actualEnd,
+      actualEnd,
+      versesRead,
+      planSegs: buildSegments(versePtr, actualEnd),
+      doneSegs: buildSegments(versePtr, actualEnd),
+      isCompleted: true
+    });
+    versePtr = actualEnd + 1;
+    dayNum++;
   }
 
   // ── FUTURE DAYS (projected from tomorrow) ───────────────────────────────
